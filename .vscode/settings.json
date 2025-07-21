@@ -1,0 +1,12 @@
+{
+    "go.goroot": "/Users/edrichhans/.gvm/gos/go1.24",
+    "go.gopath": "/Users/edrichhans/.gvm/pkgsets/go1.24/global",
+    "[go]": {
+        "editor.insertSpaces": false,
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        },
+        "editor.suggest.snippetsPreventQuickSuggestions": false
+    }
+}
