@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package proto.candles.v1;
+
+option go_package = "hermeneutic-candles/gen/proto/candles/v1;candlesv1";
+
+message StreamCandlesResponse {
+  int64 timestamp = 1; // Timestamp in milliseconds since epoch
+  double open = 2;     // Opening price
+  double high = 3;     // Highest price during the period
+  double low = 4;      // Lowest price during the period
+  double close = 5;    // Closing price
+  double volume = 6;   // Volume of trades during the period
+}
+
+message StreamCandlesRequest {
+  string symbol = 1; // Symbol for which to fetch candles
+  int32 interval = 2; // Interval in seconds (e.g., 60 for 1 minute)
+}
+
+service CandlesService {
+    rpc StreamCandles(StreamCandlesRequest) returns (stream StreamCandlesResponse);
+}
