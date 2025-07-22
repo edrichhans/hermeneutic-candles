@@ -69,23 +69,19 @@ func (b *BinanceAdapter) StreamTrades(parent context.Context, symbols []string, 
 		c.Close()
 
 		// If context was canceled, don't retry and don't return an error
-		if err == context.Canceled {
-			return nil
-		}
-		if err == context.DeadlineExceeded {
-			return err
+		if err != nil {
+			return fmt.Errorf("binance: %w", err)
 		}
 
-		// Check if context was canceled (including by signal)
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("binance context canceled: %w", ctx.Err())
 		default:
 			log.Printf("Connection lost: %v", err)
 		}
 	}
 
-	return fmt.Errorf("failed to establish stable connection after %d attempts", MAX_RETRIES)
+	return fmt.Errorf("binance failed to establish stable connection after %d attempts", MAX_RETRIES)
 }
 
 func (b *BinanceAdapter) handleConnection(ctx context.Context, c *websocket.Conn, out chan<- exchange.Trade) error {

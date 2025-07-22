@@ -21,16 +21,14 @@ func (s *CandlesService) StreamCandles(
 	ticker := time.NewTicker(time.Duration(req.Msg.Interval) * time.Second)
 	defer ticker.Stop()
 
-	// TODO:
-	// Get the symbol and interval from the request
-	binanceAdapter := &binance.BinanceAdapter{}
+	// TODO: add more exchanges
 	tradeChannel := make(chan exchange.Trade)
+	exchangeAdapters := []exchange.ExchangeAdapter{
+		&binance.BinanceAdapter{},
+	}
+	exchangeAggregator := exchange.NewAggregator(exchangeAdapters)
 
-	go func() {
-		if err := binanceAdapter.StreamTrades(ctx, []string{"btcusdt"}, tradeChannel); err != nil {
-			log.Printf("failed to stream trades: %v", err)
-		}
-	}()
+	go exchangeAggregator.StreamTrades(ctx, tradeChannel, []string{"btcusdt"})
 
 	go func() {
 		trades := []exchange.Trade{}
