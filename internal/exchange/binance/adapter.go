@@ -88,7 +88,6 @@ func (b *BinanceAdapter) StreamTrades(parent context.Context, out chan<- exchang
 		}
 	}
 
-	// Send EOF to grpc
 	return fmt.Errorf("binance failed to establish stable connection after %d attempts", MAX_RETRIES)
 }
 
