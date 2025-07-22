@@ -58,7 +58,13 @@ func (b *BinanceAdapter) StreamTrades(parent context.Context, out chan<- exchang
 		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		if err != nil {
 			log.Printf("Failed to connect (attempt %d/%d): %v", retries+1, MAX_RETRIES, err)
-			continue
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				continue
+			}
 		}
 
 		// Connection successful, reset retry counter
@@ -82,6 +88,7 @@ func (b *BinanceAdapter) StreamTrades(parent context.Context, out chan<- exchang
 		}
 	}
 
+	// Send EOF to grpc
 	return fmt.Errorf("binance failed to establish stable connection after %d attempts", MAX_RETRIES)
 }
 

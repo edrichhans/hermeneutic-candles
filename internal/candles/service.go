@@ -11,14 +11,22 @@ import (
 	"connectrpc.com/connect"
 )
 
-type CandlesService struct{}
+type CandlesService struct {
+	intervalMillis int
+}
+
+func NewCandlesService(intervalMillis int) *CandlesService {
+	return &CandlesService{
+		intervalMillis: intervalMillis,
+	}
+}
 
 func (s *CandlesService) StreamCandles(
 	ctx context.Context,
 	req *connect.Request[candlesv1.StreamCandlesRequest],
 	serverstream *connect.ServerStream[candlesv1.StreamCandlesResponse],
 ) error {
-	ticker := time.NewTicker(time.Duration(req.Msg.Interval) * time.Second)
+	ticker := time.NewTicker(time.Duration(int32(s.intervalMillis)) * time.Millisecond)
 	defer ticker.Stop()
 
 	// TODO: add more exchanges

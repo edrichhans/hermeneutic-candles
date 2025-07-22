@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
@@ -13,8 +14,12 @@ import (
 )
 
 func main() {
+	// Initialize flags
+	intervalMillisFlag := flag.Int("interval", 5000, "Candle interval in milliseconds")
+	flag.Parse()
+
 	mux := http.NewServeMux()
-	candlesService := &candles.CandlesService{}
+	candlesService := candles.NewCandlesService(*intervalMillisFlag)
 
 	path, handler := candlesv1connect.NewCandlesServiceHandler(candlesService)
 	mux.Handle(path, handler)
