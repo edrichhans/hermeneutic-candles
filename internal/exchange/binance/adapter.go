@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -28,7 +29,7 @@ type BinanceTrade struct {
 	Data BinanceTradeData `json:"data"`
 }
 
-func (b *BinanceAdapter) StreamTrades(parent context.Context, symbols []string, out chan<- exchange.Trade) error {
+func (b *BinanceAdapter) StreamTrades(parent context.Context, out chan<- exchange.Trade, symbols []exchange.SymbolPair) error {
 	cfg := cmd.GetConfig()
 
 	// Create a context that cancels on interrupt signal
@@ -122,13 +123,13 @@ func (b *BinanceAdapter) handleConnection(ctx context.Context, c *websocket.Conn
 	}
 }
 
-func (b *BinanceAdapter) symbolsToQuery(symbols []string) string {
+func (b *BinanceAdapter) symbolsToQuery(symbols []exchange.SymbolPair) string {
 	query := ""
 	for _, symbol := range symbols {
 		if query != "" {
 			query += "/"
 		}
-		query += symbol + "@trade"
+		query += fmt.Sprintf("%s%s@trade", strings.ToLower(symbol.First), strings.ToLower(symbol.Second))
 	}
 	return fmt.Sprintf("streams=%s", query)
 }

@@ -12,6 +12,11 @@ type Trade struct {
 	Timestamp time.Time
 }
 
+type SymbolPair struct {
+	First  string
+	Second string
+}
+
 type ExchangeAdapter interface {
-	StreamTrades(ctx context.Context, symbol []string, out chan<- Trade) error
+	StreamTrades(ctx context.Context, out chan<- Trade, symbols []SymbolPair) error
 }

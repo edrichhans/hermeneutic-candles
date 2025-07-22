@@ -28,7 +28,9 @@ func (s *CandlesService) StreamCandles(
 	}
 	exchangeAggregator := exchange.NewAggregator(exchangeAdapters)
 
-	go exchangeAggregator.StreamTrades(ctx, tradeChannel, []string{"btcusdt"})
+	go exchangeAggregator.StreamTrades(ctx, tradeChannel, []exchange.SymbolPair{
+		{First: "btc", Second: "usdt"},
+	})
 
 	go func() {
 		trades := []exchange.Trade{}

@@ -14,7 +14,7 @@ func NewAggregator(adapters []ExchangeAdapter) *Aggregator {
 	return &Aggregator{Adapters: adapters}
 }
 
-func (a *Aggregator) StreamTrades(ctx context.Context, out chan Trade, symbols []string) {
+func (a *Aggregator) StreamTrades(ctx context.Context, out chan Trade, symbols []SymbolPair) {
 	errCh := make(chan error, len(a.Adapters))
 	var wg sync.WaitGroup
 
@@ -22,7 +22,7 @@ func (a *Aggregator) StreamTrades(ctx context.Context, out chan Trade, symbols [
 		wg.Add(1)
 		go func(adapter ExchangeAdapter) {
 			defer wg.Done()
-			err := adapter.StreamTrades(ctx, symbols, out)
+			err := adapter.StreamTrades(ctx, out, symbols)
 			if err != nil {
 				errCh <- err
 			}
