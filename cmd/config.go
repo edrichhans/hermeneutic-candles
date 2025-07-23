@@ -13,6 +13,7 @@ type Config struct {
 	ServerPort             int    `env:"SERVER_PORT" envDefault:"8080"`
 	BinanceAddress         string `env:"BINANCE_ADDRESS" envDefault:"stream.binance.com"`
 	BinancePort            int    `env:"BINANCE_PORT" envDefault:"9443"`
+	BybitAddress           string `env:"BYBIT_ADDRESS" envDefault:"stream.bybit.com"`
 }
 
 var (

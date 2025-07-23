@@ -11,6 +11,7 @@ type Trade struct {
 	Price     float64
 	Quantity  float64
 	Timestamp time.Time
+	Source    string
 }
 
 type SymbolPair struct {

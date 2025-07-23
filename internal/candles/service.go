@@ -6,6 +6,7 @@ import (
 	candlesv1 "hermeneutic-candles/gen/proto/candles/v1"
 	"hermeneutic-candles/internal/exchange"
 	"hermeneutic-candles/internal/exchange/binance"
+	"hermeneutic-candles/internal/exchange/bybit"
 	"hermeneutic-candles/internal/tradestreamer"
 	"log"
 	"time"
@@ -42,9 +43,11 @@ func (s *CandlesService) StreamCandles(
 	// TODO: add more exchanges
 	tradeChannel := make(chan exchange.Trade, cfg.TradeStreamBufferSize)
 	binanceTradeStreamer := tradestreamer.NewTradeStreamer(&binance.BinanceAdapter{})
+	bybitTradeStreamer := tradestreamer.NewTradeStreamer(&bybit.BybitAdapter{})
 
 	tradeStreamers := tradestreamer.NewAggregator([]*tradestreamer.TradeStreamer{
 		binanceTradeStreamer,
+		bybitTradeStreamer,
 	})
 
 	go tradeStreamers.StreamTrades(ctx, tradeChannel, []exchange.SymbolPair{
@@ -63,6 +66,8 @@ func (s *CandlesService) StreamCandles(
 					log.Printf("Max trades per interval reached (%d), dropping trades", cfg.MaxTradesPerInterval)
 					continue
 				} else {
+					// temporarily log the trade
+					log.Printf("Received trade: %v", trade)
 					trades = append(trades, trade)
 				}
 			case <-ticker.C:

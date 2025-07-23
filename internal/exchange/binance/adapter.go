@@ -42,13 +42,13 @@ func (b *BinanceAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*we
 }
 
 func (b *BinanceAdapter) HandleMessage(message []byte, out chan<- exchange.Trade) error {
-	var binanceTrade binanceTrade
-	if err := json.Unmarshal(message, &binanceTrade); err != nil {
+	var bt binanceTrade
+	if err := json.Unmarshal(message, &bt); err != nil {
 		return fmt.Errorf("binance failed to unmarshal message: %w", err)
 	}
 
 	out <- b.binanceTradeDataToDomainTrade(
-		binanceTrade.Data,
+		bt.Data,
 	)
 	return nil
 }
@@ -64,13 +64,18 @@ func (b *BinanceAdapter) symbolsToQuery(symbols []exchange.SymbolPair) string {
 	return fmt.Sprintf("streams=%s", query)
 }
 
+func (b *BinanceAdapter) responseSymbolToDomainSymbolString(s string) string {
+	return strings.ToLower(s)
+}
+
 func (b *BinanceAdapter) binanceTradeDataToDomainTrade(
 	data binanceTradeData,
 ) exchange.Trade {
 	return exchange.Trade{
-		Symbol:    data.Symbol,
+		Symbol:    b.responseSymbolToDomainSymbolString(data.Symbol),
 		Price:     data.Price,
 		Quantity:  data.Quantity,
 		Timestamp: time.UnixMilli(data.Time),
+		Source:    b.Name(),
 	}
 }
