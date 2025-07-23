@@ -8,6 +8,8 @@ import (
 
 type Config struct {
 	WSConnectionMaxRetries int    `env:"WS_CONNECTION_MAX_RETRIES" envDefault:"5"`
+	TradeStreamBufferSize  int    `env:"TRADE_STREAM_BUFFER_SIZE" envDefault:"1000"`
+	MaxTradesPerInterval   int    `env:"MAX_TRADES_PER_INTERVAL" envDefault:"10000"`
 	ServerPort             int    `env:"SERVER_PORT" envDefault:"8080"`
 	BinanceAddress         string `env:"BINANCE_ADDRESS" envDefault:"stream.binance.com"`
 	BinancePort            int    `env:"BINANCE_PORT" envDefault:"9443"`

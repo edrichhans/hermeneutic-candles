@@ -2,6 +2,7 @@ package candles
 
 import (
 	"context"
+	"hermeneutic-candles/cmd"
 	candlesv1 "hermeneutic-candles/gen/proto/candles/v1"
 	"hermeneutic-candles/internal/exchange"
 	"hermeneutic-candles/internal/exchange/binance"
@@ -27,11 +28,19 @@ func (s *CandlesService) StreamCandles(
 	req *connect.Request[candlesv1.StreamCandlesRequest],
 	serverstream *connect.ServerStream[candlesv1.StreamCandlesResponse],
 ) error {
+	cfg := cmd.GetConfig()
+	if cfg.TradeStreamBufferSize <= 0 {
+		cfg.TradeStreamBufferSize = 1000 // Default buffer size if not set
+	}
+	if cfg.MaxTradesPerInterval <= 0 {
+		cfg.MaxTradesPerInterval = 10000 // Default max trades per interval if not set
+	}
+
 	ticker := time.NewTicker(time.Duration(int32(s.intervalMillis)) * time.Millisecond)
 	defer ticker.Stop()
 
 	// TODO: add more exchanges
-	tradeChannel := make(chan exchange.Trade)
+	tradeChannel := make(chan exchange.Trade, cfg.TradeStreamBufferSize)
 	binanceTradeStreamer := tradestreamer.NewTradeStreamer(&binance.BinanceAdapter{})
 
 	tradeStreamers := tradestreamer.NewAggregator([]*tradestreamer.TradeStreamer{
@@ -49,18 +58,25 @@ func (s *CandlesService) StreamCandles(
 			case <-ctx.Done():
 				return
 			case trade := <-tradeChannel:
-				trades = append(trades, trade)
+				if len(trades) >= cfg.MaxTradesPerInterval {
+					// TODO: Send an alert to increase buffer size
+					log.Printf("Max trades per interval reached (%d), dropping trades", cfg.MaxTradesPerInterval)
+					continue
+				} else {
+					trades = append(trades, trade)
+				}
 			case <-ticker.C:
 				if len(trades) == 0 {
 					continue
 				}
-				candle := s.tradesToCandle(trades)
-				if err := serverstream.Send(candle); err != nil {
-					log.Printf("failed to send candle: %v", err)
-					return
-				}
-				// Reset trades for the next interval
+
+				// copy trades
+				tradesCopy := make([]exchange.Trade, len(trades))
+				copy(tradesCopy, trades)
+				// reset trades
 				trades = trades[:0]
+
+				go s.processCandle(serverstream, tradesCopy)
 			}
 		}
 
@@ -69,6 +85,14 @@ func (s *CandlesService) StreamCandles(
 	<-ctx.Done()
 
 	return nil
+}
+
+func (s *CandlesService) processCandle(serverstream *connect.ServerStream[candlesv1.StreamCandlesResponse], trades []exchange.Trade) {
+	candle := s.tradesToCandle(trades)
+	if err := serverstream.Send(candle); err != nil {
+		log.Printf("failed to send candle: %v", err)
+		return
+	}
 }
 
 func (s *CandlesService) tradesToCandle(trades []exchange.Trade) *candlesv1.StreamCandlesResponse {
