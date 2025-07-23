@@ -52,7 +52,7 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return fmt.Errorf("%s: %w", ts.adapter.Name(), ctx.Err())
 			default:
 				continue
 			}
@@ -68,18 +68,18 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 
 		// If context was canceled, don't retry and don't return an error
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", ts.adapter.Name(), err)
 		}
 
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("context canceled: %w", ctx.Err())
+			return fmt.Errorf("%s: %w", ts.adapter.Name(), ctx.Err())
 		default:
-			log.Printf("Connection lost: %v", err)
+			log.Printf("Connection to %s lost: %v", ts.adapter.Name(), err)
 		}
 	}
 
-	return fmt.Errorf("failed to establish stable connection after %d attempts", connectionMaxRetries)
+	return fmt.Errorf("failed to establish stable connection to %s after %d attempts", ts.adapter.Name(), connectionMaxRetries)
 }
 
 func (ts *TradeStreamer) handleConnection(ctx context.Context, c *websocket.Conn, out chan<- exchange.Trade) error {
