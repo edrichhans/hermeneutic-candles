@@ -5,6 +5,7 @@ import (
 	candlesv1 "hermeneutic-candles/gen/proto/candles/v1"
 	"hermeneutic-candles/internal/exchange"
 	"hermeneutic-candles/internal/exchange/binance"
+	"hermeneutic-candles/internal/tradestreamer"
 	"log"
 	"time"
 
@@ -31,12 +32,13 @@ func (s *CandlesService) StreamCandles(
 
 	// TODO: add more exchanges
 	tradeChannel := make(chan exchange.Trade)
-	exchangeAdapters := []exchange.ExchangeAdapter{
-		&binance.BinanceAdapter{},
-	}
-	exchangeAggregator := exchange.NewAggregator(exchangeAdapters)
+	binanceTradeStreamer := tradestreamer.NewTradeStreamer(&binance.BinanceAdapter{})
 
-	go exchangeAggregator.StreamTrades(ctx, tradeChannel, []exchange.SymbolPair{
+	tradeStreamers := tradestreamer.NewAggregator([]*tradestreamer.TradeStreamer{
+		binanceTradeStreamer,
+	})
+
+	go tradeStreamers.StreamTrades(ctx, tradeChannel, []exchange.SymbolPair{
 		{First: "btc", Second: "usdt"},
 	})
 

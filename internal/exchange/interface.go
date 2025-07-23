@@ -1,7 +1,7 @@
 package exchange
 
 import (
-	"context"
+	"net/url"
 	"time"
 )
 
@@ -18,5 +18,7 @@ type SymbolPair struct {
 }
 
 type ExchangeAdapter interface {
-	StreamTrades(ctx context.Context, out chan<- Trade, symbols []SymbolPair) error
+	Name() string
+	URL(symbols []SymbolPair) url.URL
+	HandleMessage(message []byte, out chan<- Trade) error
 }
