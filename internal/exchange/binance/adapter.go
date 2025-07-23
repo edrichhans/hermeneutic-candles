@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"hermeneutic-candles/cmd"
 	"hermeneutic-candles/internal/exchange"
+	"log"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type BinanceAdapter struct{}
@@ -26,11 +29,16 @@ func (b *BinanceAdapter) Name() string {
 	return "Binance"
 }
 
-func (b *BinanceAdapter) URL(symbols []exchange.SymbolPair) url.URL {
+func (b *BinanceAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*websocket.Conn, error) {
 	cfg := cmd.GetConfig()
 	addr := fmt.Sprintf("%s:%d", cfg.BinanceAddress, cfg.BinancePort)
 	query := b.symbolsToQuery(symbols)
-	return url.URL{Scheme: "wss", Host: addr, Path: "/stream", RawQuery: query}
+	u := url.URL{Scheme: "wss", Host: addr, Path: "/stream", RawQuery: query}
+
+	log.Printf("Connecting to %s at %s", b.Name(), u.String())
+
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	return c, err
 }
 
 func (b *BinanceAdapter) HandleMessage(message []byte, out chan<- exchange.Trade) error {

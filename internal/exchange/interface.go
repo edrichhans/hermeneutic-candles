@@ -1,8 +1,9 @@
 package exchange
 
 import (
-	"net/url"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type Trade struct {
@@ -19,6 +20,6 @@ type SymbolPair struct {
 
 type ExchangeAdapter interface {
 	Name() string
-	URL(symbols []SymbolPair) url.URL
+	ConnectAndSubscribe(symbols []SymbolPair) (*websocket.Conn, error)
 	HandleMessage(message []byte, out chan<- Trade) error
 }

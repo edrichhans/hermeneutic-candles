@@ -29,8 +29,6 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 	ctx, cancel := signal.NotifyContext(parent, os.Interrupt)
 	defer cancel()
 
-	u := ts.adapter.URL(symbols)
-
 	retries := 0
 	for retries = range connectionMaxRetries {
 		if retries > 0 {
@@ -44,9 +42,7 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 			}
 		}
 
-		log.Printf("Connecting to %s on %s", ts.adapter.Name(), u.String())
-
-		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		c, err := ts.adapter.ConnectAndSubscribe(symbols)
 		if err != nil {
 			log.Printf("Failed to connect (attempt %d/%d): %v", retries+1, connectionMaxRetries, err)
 
