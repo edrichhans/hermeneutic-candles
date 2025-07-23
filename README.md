@@ -3,8 +3,10 @@
 Candles service for Hermeneutic Investments. Aggregates information from 3 CEXs
 
 ## TODO
-- [ ] Query data from CEXs
-- [ ] Accept command line input for interval
-- [ ] Resiliency:
-    - [ ] network interruption from CEX
-    - [ ] Recover if client disconnects
+- [ ] Query data from 3 CEXs
+- [x] Accept command line input for interval
+- [x] Resiliency:
+    - [x] network interruption from CEX
+    - [x] Recover if client disconnects
+- [ ] docker compose
+- [ ] accept symbols from GRPC request
