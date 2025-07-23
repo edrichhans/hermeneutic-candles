@@ -7,9 +7,10 @@ import (
 )
 
 type Config struct {
-	ServerPort     int    `env:"SERVER_PORT" envDefault:"8080"`
-	BinanceAddress string `env:"BINANCE_ADDRESS" envDefault:"stream.binance.com"`
-	BinancePort    int    `env:"BINANCE_PORT" envDefault:"9443"`
+	WSConnectionMaxRetries int    `env:"WS_CONNECTION_MAX_RETRIES" envDefault:"5"`
+	ServerPort             int    `env:"SERVER_PORT" envDefault:"8080"`
+	BinanceAddress         string `env:"BINANCE_ADDRESS" envDefault:"stream.binance.com"`
+	BinancePort            int    `env:"BINANCE_PORT" envDefault:"9443"`
 }
 
 var (

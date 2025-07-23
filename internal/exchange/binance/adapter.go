@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-const MAX_RETRIES = 5
-
 type BinanceAdapter struct{}
 
 type binanceTradeData struct {

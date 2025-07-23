@@ -3,6 +3,7 @@ package tradestreamer
 import (
 	"context"
 	"fmt"
+	"hermeneutic-candles/cmd"
 	"hermeneutic-candles/internal/exchange"
 	"log"
 	"os"
@@ -11,8 +12,6 @@ import (
 
 	"github.com/gorilla/websocket"
 )
-
-const MAX_RETRIES = 5
 
 type TradeStreamer struct {
 	adapter exchange.ExchangeAdapter
@@ -23,6 +22,9 @@ func NewTradeStreamer(adapter exchange.ExchangeAdapter) *TradeStreamer {
 }
 
 func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchange.Trade, symbols []exchange.SymbolPair) error {
+	cfg := cmd.GetConfig()
+	connectionMaxRetries := cfg.WSConnectionMaxRetries
+
 	// Create a context that cancels on interrupt signal
 	ctx, cancel := signal.NotifyContext(parent, os.Interrupt)
 	defer cancel()
@@ -30,10 +32,10 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 	u := ts.adapter.URL(symbols)
 
 	retries := 0
-	for retries = range MAX_RETRIES {
+	for retries = range connectionMaxRetries {
 		if retries > 0 {
 			delay := time.Duration(retries) * time.Second
-			log.Printf("Reconnecting in %v... (attempt %d/%d)", delay, retries+1, MAX_RETRIES)
+			log.Printf("Reconnecting in %v... (attempt %d/%d)", delay, retries+1, connectionMaxRetries)
 
 			select {
 			case <-time.After(delay):
@@ -46,7 +48,7 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 
 		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		if err != nil {
-			log.Printf("Failed to connect (attempt %d/%d): %v", retries+1, MAX_RETRIES, err)
+			log.Printf("Failed to connect (attempt %d/%d): %v", retries+1, connectionMaxRetries, err)
 
 			select {
 			case <-ctx.Done():
@@ -77,7 +79,7 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 		}
 	}
 
-	return fmt.Errorf("failed to establish stable connection after %d attempts", MAX_RETRIES)
+	return fmt.Errorf("failed to establish stable connection after %d attempts", connectionMaxRetries)
 }
 
 func (ts *TradeStreamer) handleConnection(ctx context.Context, c *websocket.Conn, out chan<- exchange.Trade) error {
