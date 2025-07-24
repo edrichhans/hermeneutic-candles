@@ -84,17 +84,41 @@ SYMBOLS=btc-usdt,eth-usdt docker compose up candles-client -d
 
 ## Technical
 
-- The service uses `connect-go` for its GRPC server
+- The service uses `connect-go` for its GRPC client and server
 - The `adapter` pattern is implemented to easily add more exchanges
-- The websocket connection automatically retries for 5 times (linear backoff) in case the connection to the server is unintentionally terminated
+- The websocket connection automatically retries for 5 times (linear backoff) in case the connection to the server is unintentionally terminated. Can be improved as necessary
 - There is a primitive backpressure handling by way of limiting the channel buffer size and setting the maximum number of trades per interval. This can be optimized in the future.
-- Each connection to the exchange runs in a goroutine, and forwards trade data into a channel. Another goroutine converts and forwards trade data from the channel to be written to the GRPC connection
+
+### Diagram
+
+![Diagram](docs/diagram-1.png)
+
+Each connection to the exchange runs in a goroutine, and forwards trade data into a channel. Another goroutine converts and forwards trade data from the channel to be written to the GRPC connection
 
 ## Caveats
 
 - The input accepts the format `"%s-%s"`, but outputs `"%s%s"`. This is intentional for now for speed
     - The reason is because converting from `"%s-%s"` to `"%s%s"` is a destructive operation (no delimiter), and it is hard to convert the format back
     - Different exchanges accepts different formats, and also outputs different format
+
+## Maintainers
+
+### Updating protobuf interface
+
+1. Modify `proto/candles/v1/candles.proto`
+2. Run `buf lint` to identify any problems
+3. Run `buf generate` to generate the new go types
+
+> Important: Do not update `gen/*`, which contains all the generated files from the `buf` library
+
+### Adding new Exchanges
+
+Adding a new exchange is simple
+
+1. Create a new directory under `internal/exchange`, e.g. `internal/exchange/coinbase`
+2. Create a new adapter that implements the `ExchangeAdapter` interface (`internal/exchange/interface.go`)
+3. Register a new `TradeStreamer` in `CandlesService/StreamCandles` that accepts the new adapter that you created (`internal/candles/service.go`)
+4. Append the new `TradeStreamer` to the `TradeAggregator` in `CandlesService/StreamCandles` (`internal/candles/service.go`)
 
 ## TODO
 - [x] Query data from 3 CEXs
@@ -105,7 +129,7 @@ SYMBOLS=btc-usdt,eth-usdt docker compose up candles-client -d
 - [x] docker compose
 - [x] accept symbols from GRPC request
 - [x] Handle backpressure (too many messages coming in)
-- [ ] Client
+- [x] Client
 - [ ] Recover using candlestick data from REST endpoint
 - [ ] Tests
 - [ ] Handle differences in symbol encoding between request and response (btc-usdt vs btcusdt)
