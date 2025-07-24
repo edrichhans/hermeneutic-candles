@@ -14,6 +14,8 @@ type Config struct {
 	BinanceAddress         string `env:"BINANCE_ADDRESS" envDefault:"stream.binance.com"`
 	BinancePort            int    `env:"BINANCE_PORT" envDefault:"9443"`
 	BybitAddress           string `env:"BYBIT_ADDRESS" envDefault:"stream.bybit.com"`
+	OkxAddress             string `env:"OKX_ADDRESS" envDefault:"ws.okx.com"`
+	OkxPort                int    `env:"OKX_PORT" envDefault:"8443"`
 }
 
 var (

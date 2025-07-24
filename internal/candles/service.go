@@ -7,6 +7,7 @@ import (
 	"hermeneutic-candles/internal/exchange"
 	"hermeneutic-candles/internal/exchange/binance"
 	"hermeneutic-candles/internal/exchange/bybit"
+	"hermeneutic-candles/internal/exchange/okx"
 	"hermeneutic-candles/internal/tradestreamer"
 	"log"
 	"time"
@@ -44,10 +45,12 @@ func (s *CandlesService) StreamCandles(
 	tradeChannel := make(chan exchange.Trade, cfg.TradeStreamBufferSize)
 	binanceTradeStreamer := tradestreamer.NewTradeStreamer(&binance.BinanceAdapter{})
 	bybitTradeStreamer := tradestreamer.NewTradeStreamer(&bybit.BybitAdapter{})
+	okxTradeStreamer := tradestreamer.NewTradeStreamer(&okx.OkxAdapter{})
 
 	tradeStreamers := tradestreamer.NewAggregator([]*tradestreamer.TradeStreamer{
 		binanceTradeStreamer,
 		bybitTradeStreamer,
+		okxTradeStreamer,
 	})
 
 	go tradeStreamers.StreamTrades(ctx, tradeChannel, []exchange.SymbolPair{
