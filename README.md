@@ -86,7 +86,7 @@ SYMBOLS=btc-usdt,eth-usdt docker compose up candles-client -d
 
 - The service uses `connect-go` for its GRPC client and server
 - The `adapter` pattern is implemented to easily add more exchanges
-- The websocket connection automatically retries for 5 times (linear backoff) in case the connection to the server is unintentionally terminated. Can be improved as necessary
+- The websocket connection automatically retries for 5 times (linear backoff) in case dialing the server fails. Can be improved as necessary
 - There is a primitive backpressure handling by way of limiting the channel buffer size and setting the maximum number of trades per interval. This can be optimized in the future.
 
 ### Diagram
@@ -100,6 +100,8 @@ Each connection to the exchange runs in a goroutine, and forwards trade data int
 - The input accepts the format `"%s-%s"`, but outputs `"%s%s"`. This is intentional for now for speed
     - The reason is because converting from `"%s-%s"` to `"%s%s"` is a destructive operation (no delimiter), and it is hard to convert the format back
     - Different exchanges accepts different formats, and also outputs different format
+- The server runs in `h2c` mode, which is `HTTP/2` without TLS. If we are planning to expose the server publicly or add browser support, we must change it to `h2`.
+- There are no implementations on reconnecting when the connection to the exchange terminates. The strategy is documented under TODO
 
 ## Maintainers
 
@@ -133,3 +135,7 @@ Adding a new exchange is simple
 - [ ] Recover using candlestick data from REST endpoint
 - [ ] Tests
 - [ ] Handle differences in symbol encoding between request and response (btc-usdt vs btcusdt)
+- [ ] Handle disconnection after successful subscription
+    - Subscribe to the heartbeat API of the exchange
+    - If there is no heartbeat stream, the manually `ping` the exchange server at an interval
+    - Reconnect gracefully if there is no `pong` after a certain duration
