@@ -75,6 +75,7 @@ func (s *CandlesService) StreamCandles(
 }
 
 // Parses incoming symbols to exchange.SymbolPair format
+//
 // Ex: "btc-usdt" -> {First: "btc", Second: "usdt"}
 func (s *CandlesService) parseSymbols(reqSymbols []string) ([]exchange.SymbolPair, error) {
 	var symbolPairs []exchange.SymbolPair
