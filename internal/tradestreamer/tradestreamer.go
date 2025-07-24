@@ -45,13 +45,7 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 		c, err := ts.adapter.ConnectAndSubscribe(symbols)
 		if err != nil {
 			log.Printf("Failed to connect (attempt %d/%d): %v", retries+1, connectionMaxRetries, err)
-
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("%s: %w", ts.adapter.Name(), ctx.Err())
-			default:
-				continue
-			}
+			continue
 		}
 
 		// Connection successful, reset retry counter
