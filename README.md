@@ -21,8 +21,10 @@ go run ./cmd/server/main.go --interval=5000
 
 ### Running on docker-compose
 
+The flags are accepted as environment variables when running on `docker-compose`
+
 ```sh
-docker compose up -d
+INTERVAL=10000 docker compose up candles-server -d
 ```
 
 ## API
@@ -55,6 +57,31 @@ grpcurl \
     localhost:8080 proto.candles.v1.CandlesService/StreamCandles
 ```
 
+## Client
+
+A simple GRPC client that uses `connect-go` to connect to the server
+
+### Flags
+
+| Name    | Flag        | Mandatory | Description                                                                                         |
+| ------- | ----------- | --------- | --------------------------------------------------------------------------------------------------- |
+| server  | `--server`  | NO        | Address of the candles server to connect to. Defaults to `http://localhost:8080`                    |
+| symbols | `--symbols` | NO        | comma separated list of symbols. Each symbol must be pairs separated by `-`. Defaults to `btc-usdt` |
+
+### Running locally
+
+```sh
+go run cmd/client/main.go --server="http://localhost:8080" --symbols=btc-usdt,eth-usdt
+```
+
+### Running on docker-compose
+
+The flags are accepted as environment variables when running on `docker-compose`
+
+```sh
+SYMBOLS=btc-usdt,eth-usdt docker compose up candles-client -d
+```
+
 ## Technical
 
 - The service uses `connect-go` for its GRPC server
@@ -62,7 +89,6 @@ grpcurl \
 - The websocket connection automatically retries for 5 times (linear backoff) in case the connection to the server is unintentionally terminated
 - There is a primitive backpressure handling by way of limiting the channel buffer size and setting the maximum number of trades per interval. This can be optimized in the future.
 - Each connection to the exchange runs in a goroutine, and forwards trade data into a channel. Another goroutine converts and forwards trade data from the channel to be written to the GRPC connection
-
 
 ## Caveats
 

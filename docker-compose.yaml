@@ -1,8 +1,25 @@
 services:
   candles-server:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.server
     ports:
       - "8080:8080"
     command:
       - "./candles-server"
-      - "--interval=1000"
+      - "--interval=${INTERVAL:-5000}"
+    environment:
+      - INTERVAL=${INTERVAL}
+  candles-client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    depends_on:
+      - candles-server
+    command:
+      - "./candles-client"
+      - "--server=${SERVER:-http://candles-server:8080}"
+      - "--symbols=${SYMBOLS:-btc-usdt,eth-usdt}"
+    environment:
+      - SYMBOLS=${SYMBOLS}
+      - SERVER=${SERVER}
