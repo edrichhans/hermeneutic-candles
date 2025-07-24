@@ -13,3 +13,4 @@ Candles service for Hermeneutic Investments. Aggregates information from 3 CEXs
 - [ ] Handle backpressure (too many messages coming in)
 - [ ] Recover using candlestick data from REST endpoint
 - [ ] Tests
+- [ ] Client

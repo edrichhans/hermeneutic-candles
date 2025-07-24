@@ -1,0 +1,8 @@
+services:
+  candles-server:
+    build: .
+    ports:
+      - "8080:8080"
+    command:
+      - "./candles-server"
+      - "--interval=1000"

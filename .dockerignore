@@ -1,0 +1,7 @@
+.vscode
+.git
+.gitignore
+proto
+buf*.yaml
+docker-compose*.yaml
+Dockerfile*
