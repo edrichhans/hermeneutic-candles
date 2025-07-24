@@ -23,12 +23,13 @@ const (
 
 type StreamCandlesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp     int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // Timestamp in milliseconds since epoch
-	Open          float64                `protobuf:"fixed64,2,opt,name=open,proto3" json:"open,omitempty"`          // Opening price
-	High          float64                `protobuf:"fixed64,3,opt,name=high,proto3" json:"high,omitempty"`          // Highest price during the period
-	Low           float64                `protobuf:"fixed64,4,opt,name=low,proto3" json:"low,omitempty"`            // Lowest price during the period
-	Close         float64                `protobuf:"fixed64,5,opt,name=close,proto3" json:"close,omitempty"`        // Closing price
-	Volume        float64                `protobuf:"fixed64,6,opt,name=volume,proto3" json:"volume,omitempty"`      // Volume of trades during the period
+	Symbol        string                 `protobuf:"bytes,1,opt,name=symbol,proto3" json:"symbol,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // Timestamp in milliseconds since epoch
+	Open          float64                `protobuf:"fixed64,3,opt,name=open,proto3" json:"open,omitempty"`          // Opening price
+	High          float64                `protobuf:"fixed64,4,opt,name=high,proto3" json:"high,omitempty"`          // Highest price during the period
+	Low           float64                `protobuf:"fixed64,5,opt,name=low,proto3" json:"low,omitempty"`            // Lowest price during the period
+	Close         float64                `protobuf:"fixed64,6,opt,name=close,proto3" json:"close,omitempty"`        // Closing price
+	Volume        float64                `protobuf:"fixed64,7,opt,name=volume,proto3" json:"volume,omitempty"`      // Volume of trades during the period
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -61,6 +62,13 @@ func (x *StreamCandlesResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use StreamCandlesResponse.ProtoReflect.Descriptor instead.
 func (*StreamCandlesResponse) Descriptor() ([]byte, []int) {
 	return file_proto_candles_v1_candles_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *StreamCandlesResponse) GetSymbol() string {
+	if x != nil {
+		return x.Symbol
+	}
+	return ""
 }
 
 func (x *StreamCandlesResponse) GetTimestamp() int64 {
@@ -107,8 +115,7 @@ func (x *StreamCandlesResponse) GetVolume() float64 {
 
 type StreamCandlesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Symbol        string                 `protobuf:"bytes,1,opt,name=symbol,proto3" json:"symbol,omitempty"`      // Symbol for which to fetch candles
-	Interval      int32                  `protobuf:"varint,2,opt,name=interval,proto3" json:"interval,omitempty"` // Interval in seconds (e.g., 60 for 1 minute)
+	Symbols       []string               `protobuf:"bytes,1,rep,name=symbols,proto3" json:"symbols,omitempty"` // Symbol for which to fetch candles
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -143,35 +150,28 @@ func (*StreamCandlesRequest) Descriptor() ([]byte, []int) {
 	return file_proto_candles_v1_candles_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *StreamCandlesRequest) GetSymbol() string {
+func (x *StreamCandlesRequest) GetSymbols() []string {
 	if x != nil {
-		return x.Symbol
+		return x.Symbols
 	}
-	return ""
-}
-
-func (x *StreamCandlesRequest) GetInterval() int32 {
-	if x != nil {
-		return x.Interval
-	}
-	return 0
+	return nil
 }
 
 var File_proto_candles_v1_candles_proto protoreflect.FileDescriptor
 
 const file_proto_candles_v1_candles_proto_rawDesc = "" +
 	"\n" +
-	"\x1eproto/candles/v1/candles.proto\x12\x10proto.candles.v1\"\x9d\x01\n" +
-	"\x15StreamCandlesResponse\x12\x1c\n" +
-	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12\x12\n" +
-	"\x04open\x18\x02 \x01(\x01R\x04open\x12\x12\n" +
-	"\x04high\x18\x03 \x01(\x01R\x04high\x12\x10\n" +
-	"\x03low\x18\x04 \x01(\x01R\x03low\x12\x14\n" +
-	"\x05close\x18\x05 \x01(\x01R\x05close\x12\x16\n" +
-	"\x06volume\x18\x06 \x01(\x01R\x06volume\"J\n" +
-	"\x14StreamCandlesRequest\x12\x16\n" +
-	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12\x1a\n" +
-	"\binterval\x18\x02 \x01(\x05R\binterval2t\n" +
+	"\x1eproto/candles/v1/candles.proto\x12\x10proto.candles.v1\"\xb5\x01\n" +
+	"\x15StreamCandlesResponse\x12\x16\n" +
+	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12\x1c\n" +
+	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x12\n" +
+	"\x04open\x18\x03 \x01(\x01R\x04open\x12\x12\n" +
+	"\x04high\x18\x04 \x01(\x01R\x04high\x12\x10\n" +
+	"\x03low\x18\x05 \x01(\x01R\x03low\x12\x14\n" +
+	"\x05close\x18\x06 \x01(\x01R\x05close\x12\x16\n" +
+	"\x06volume\x18\a \x01(\x01R\x06volume\"0\n" +
+	"\x14StreamCandlesRequest\x12\x18\n" +
+	"\asymbols\x18\x01 \x03(\tR\asymbols2t\n" +
 	"\x0eCandlesService\x12b\n" +
 	"\rStreamCandles\x12&.proto.candles.v1.StreamCandlesRequest\x1a'.proto.candles.v1.StreamCandlesResponse0\x01B4Z2hermeneutic-candles/gen/proto/candles/v1;candlesv1b\x06proto3"
 

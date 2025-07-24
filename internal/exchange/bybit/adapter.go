@@ -79,7 +79,7 @@ func (b *BybitAdapter) symbolsToSubscribeArgs(symbols []exchange.SymbolPair) []s
 	return args
 }
 
-func (b *BybitAdapter) responseSymbolToDomainSymbolString(s string) string {
+func (b *BybitAdapter) responseSymbolToOutputString(s string) string {
 	return strings.ToLower(s)
 }
 
@@ -87,7 +87,7 @@ func (b *BybitAdapter) bybitTradeDataToDomainTrade(
 	data bybitTradeData,
 ) exchange.Trade {
 	return exchange.Trade{
-		Symbol:    b.responseSymbolToDomainSymbolString(data.Symbol),
+		Symbol:    b.responseSymbolToOutputString(data.Symbol),
 		Price:     data.Price,
 		Quantity:  data.Quantity,
 		Timestamp: time.UnixMilli(data.Time),

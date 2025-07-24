@@ -86,15 +86,19 @@ func (b *OkxAdapter) symbolsToSubscribeArgs(symbols []exchange.SymbolPair) []sub
 	return args
 }
 
-func (b *OkxAdapter) responseSymbolToDomainSymbolString(s string) string {
-	return strings.ToLower(s)
+func (b *OkxAdapter) responseSymbolToOutputString(s string) string {
+	parts := strings.Split(s, "-")
+	if len(parts) != 2 {
+		return ""
+	}
+	return strings.ToLower(fmt.Sprintf("%s%s", parts[0], parts[1]))
 }
 
 func (b *OkxAdapter) okxTradeDataToDomainTrade(
 	data okxTradeData,
 ) exchange.Trade {
 	return exchange.Trade{
-		Symbol:    b.responseSymbolToDomainSymbolString(data.InstId),
+		Symbol:    b.responseSymbolToOutputString(data.InstId),
 		Price:     data.Price,
 		Quantity:  data.Size,
 		Timestamp: time.UnixMilli(data.TimeStamp),

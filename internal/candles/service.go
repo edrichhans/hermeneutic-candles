@@ -2,6 +2,7 @@ package candles
 
 import (
 	"context"
+	"fmt"
 	"hermeneutic-candles/cmd"
 	candlesv1 "hermeneutic-candles/gen/proto/candles/v1"
 	"hermeneutic-candles/internal/exchange"
@@ -10,6 +11,7 @@ import (
 	"hermeneutic-candles/internal/exchange/okx"
 	"hermeneutic-candles/internal/tradestreamer"
 	"log"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -38,11 +40,19 @@ func (s *CandlesService) StreamCandles(
 		cfg.MaxTradesPerInterval = 10000 // Default max trades per interval if not set
 	}
 
-	ticker := time.NewTicker(time.Duration(int32(s.intervalMillis)) * time.Millisecond)
-	defer ticker.Stop()
+	// Parse incoming symbols
+	symbolPairs, err := s.parseSymbols(req.Msg.Symbols)
+	if err != nil {
+		return fmt.Errorf("failed to parse symbol: %w", err)
+	}
 
-	// TODO: add more exchanges
+	// Initialize channels
+	// This channel will receive trades from the trade streamers
 	tradeChannel := make(chan exchange.Trade, cfg.TradeStreamBufferSize)
+	// This channel buffers candles to be sent to the client
+	candleChannel := make(chan *candlesv1.StreamCandlesResponse)
+
+	// Initialize trade streamers for each exchange
 	binanceTradeStreamer := tradestreamer.NewTradeStreamer(&binance.BinanceAdapter{})
 	bybitTradeStreamer := tradestreamer.NewTradeStreamer(&bybit.BybitAdapter{})
 	okxTradeStreamer := tradestreamer.NewTradeStreamer(&okx.OkxAdapter{})
@@ -53,57 +63,94 @@ func (s *CandlesService) StreamCandles(
 		okxTradeStreamer,
 	})
 
-	go tradeStreamers.StreamTrades(ctx, tradeChannel, []exchange.SymbolPair{
-		{First: "btc", Second: "usdt"},
-	})
+	go tradeStreamers.StreamTrades(ctx, tradeChannel, symbolPairs)
 
-	go func() {
-		trades := []exchange.Trade{}
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case trade := <-tradeChannel:
-				if len(trades) >= cfg.MaxTradesPerInterval {
-					// TODO: Send an alert to increase buffer size
-					log.Printf("Max trades per interval reached (%d), dropping trades", cfg.MaxTradesPerInterval)
-					continue
-				} else {
-					// temporarily log the trade
-					log.Printf("Received trade: %v", trade)
-					trades = append(trades, trade)
-				}
-			case <-ticker.C:
-				if len(trades) == 0 {
-					continue
-				}
+	go s.forwardTradesToCandles(ctx, cfg, tradeChannel, candleChannel)
 
-				// copy trades
-				tradesCopy := make([]exchange.Trade, len(trades))
-				copy(tradesCopy, trades)
-				// reset trades
-				trades = trades[:0]
-
-				go s.processCandle(serverstream, tradesCopy)
-			}
-		}
-
-	}()
+	go s.processCandleChannel(ctx, candleChannel, serverstream)
 
 	<-ctx.Done()
 
 	return nil
 }
 
-func (s *CandlesService) processCandle(serverstream *connect.ServerStream[candlesv1.StreamCandlesResponse], trades []exchange.Trade) {
-	candle := s.tradesToCandle(trades)
-	if err := serverstream.Send(candle); err != nil {
-		log.Printf("failed to send candle: %v", err)
-		return
+// Parses incoming symbols to exchange.SymbolPair format
+// Ex: "btc-usdt" -> {First: "btc", Second: "usdt"}
+func (s *CandlesService) parseSymbols(reqSymbols []string) ([]exchange.SymbolPair, error) {
+	var symbolPairs []exchange.SymbolPair
+	for _, reqSymbol := range reqSymbols {
+		parts := strings.Split(reqSymbol, "-")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid symbol format: %s", reqSymbol)
+		}
+		symbolPairs = append(symbolPairs, exchange.SymbolPair{First: parts[0], Second: parts[1]})
+	}
+	return symbolPairs, nil
+}
+
+// Forwards trades to the candles channel at a specified interval
+func (s *CandlesService) forwardTradesToCandles(ctx context.Context, cfg *cmd.Config, tradeChannel <-chan exchange.Trade, candleChannel chan<- *candlesv1.StreamCandlesResponse) {
+	ticker := time.NewTicker(time.Duration(int32(s.intervalMillis)) * time.Millisecond)
+	defer ticker.Stop()
+
+	trades := map[string][]exchange.Trade{}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case trade := <-tradeChannel:
+			if len(trades) >= cfg.MaxTradesPerInterval {
+				// TODO: Send an alert to increase buffer size
+				log.Printf("Max trades per interval reached (%d), dropping trades", cfg.MaxTradesPerInterval)
+				continue
+			}
+
+			// Initialize the slice for the symbol if it doesn't exist
+			if trades[trade.Symbol] == nil {
+				trades[trade.Symbol] = []exchange.Trade{}
+			}
+			// Append the trade to the slice for the symbol
+			trades[trade.Symbol] = append(trades[trade.Symbol], trade)
+
+		case <-ticker.C:
+			for symbol, t := range trades {
+				if len(t) == 0 {
+					continue
+				}
+				// copy trades
+				tc := make([]exchange.Trade, len(t))
+				copy(tc, t)
+				// reset trades
+				trades[symbol] = t[:0]
+
+				candle := s.tradesToCandle(tc, symbol)
+				candleChannel <- candle
+			}
+		}
 	}
 }
 
-func (s *CandlesService) tradesToCandle(trades []exchange.Trade) *candlesv1.StreamCandlesResponse {
+// Sends candles to the server stream
+// This is separate from the trade processing to avoid blocking, and write methods are not concurrent-safe
+func (s *CandlesService) processCandleChannel(ctx context.Context, candleChannel <-chan *candlesv1.StreamCandlesResponse, serverstream *connect.ServerStream[candlesv1.StreamCandlesResponse]) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case candle := <-candleChannel:
+			if candle == nil {
+				continue
+			}
+			if err := serverstream.Send(candle); err != nil {
+				log.Printf("failed to send candle: %v", err)
+				return
+			}
+		}
+	}
+}
+
+// Converts a slice of trades into a candle
+func (s *CandlesService) tradesToCandle(trades []exchange.Trade, symbol string) *candlesv1.StreamCandlesResponse {
 	if len(trades) == 0 {
 		return nil
 	}
@@ -125,7 +172,8 @@ func (s *CandlesService) tradesToCandle(trades []exchange.Trade) *candlesv1.Stre
 	}
 
 	return &candlesv1.StreamCandlesResponse{
-		Timestamp: trades[0].Timestamp.Unix(),
+		Symbol:    symbol,
+		Timestamp: time.Now().Unix(),
 		Open:      open,
 		High:      high,
 		Low:       low,

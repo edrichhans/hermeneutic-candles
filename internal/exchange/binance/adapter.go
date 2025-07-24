@@ -64,7 +64,7 @@ func (b *BinanceAdapter) symbolsToQuery(symbols []exchange.SymbolPair) string {
 	return fmt.Sprintf("streams=%s", query)
 }
 
-func (b *BinanceAdapter) responseSymbolToDomainSymbolString(s string) string {
+func (b *BinanceAdapter) responseSymbolToOutputString(s string) string {
 	return strings.ToLower(s)
 }
 
@@ -72,7 +72,7 @@ func (b *BinanceAdapter) binanceTradeDataToDomainTrade(
 	data binanceTradeData,
 ) exchange.Trade {
 	return exchange.Trade{
-		Symbol:    b.responseSymbolToDomainSymbolString(data.Symbol),
+		Symbol:    b.responseSymbolToOutputString(data.Symbol),
 		Price:     data.Price,
 		Quantity:  data.Quantity,
 		Timestamp: time.UnixMilli(data.Time),
