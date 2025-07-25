@@ -12,6 +12,7 @@ import (
 	"hermeneutic-candles/internal/tradestreamer"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -93,6 +94,7 @@ func (s *CandlesService) parseSymbols(reqSymbols []string) ([]exchange.SymbolPai
 func (s *CandlesService) forwardTradesToCandles(ctx context.Context, cfg *cmd.Config, tradeChannel <-chan exchange.Trade, candleChannel chan<- *candlesv1.StreamCandlesResponse) {
 	ticker := time.NewTicker(time.Duration(int32(s.intervalMillis)) * time.Millisecond)
 	defer ticker.Stop()
+	tradesMu := &sync.Mutex{}
 
 	trades := map[string][]exchange.Trade{}
 	for {
@@ -111,7 +113,9 @@ func (s *CandlesService) forwardTradesToCandles(ctx context.Context, cfg *cmd.Co
 				trades[trade.Symbol] = []exchange.Trade{}
 			}
 			// Append the trade to the slice for the symbol
+			tradesMu.Lock()
 			trades[trade.Symbol] = append(trades[trade.Symbol], trade)
+			tradesMu.Unlock()
 
 		case <-ticker.C:
 			for symbol, t := range trades {
@@ -119,10 +123,12 @@ func (s *CandlesService) forwardTradesToCandles(ctx context.Context, cfg *cmd.Co
 					continue
 				}
 				// copy trades
+				tradesMu.Lock()
 				tc := make([]exchange.Trade, len(t))
 				copy(tc, t)
 				// reset trades
 				trades[symbol] = t[:0]
+				tradesMu.Unlock()
 
 				candle := s.tradesToCandle(tc, symbol)
 				candleChannel <- candle
