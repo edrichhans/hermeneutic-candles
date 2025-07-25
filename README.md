@@ -88,6 +88,7 @@ SYMBOLS=btc-usdt,eth-usdt docker compose up candles-client -d
 - The `adapter` pattern is implemented to easily add more exchanges
 - The websocket connection automatically retries for 5 times (linear backoff) in case dialing the server fails. Can be improved as necessary
 - There is a primitive backpressure handling by way of limiting the channel buffer size and setting the maximum number of trades per interval. This can be optimized in the future.
+- In case of network disruptions to each exchange, the TradeStreamer will automatically send a *ping* frame and wait for a *pong* frame from the exchange. If no *pong* frame arrives after 10 seconds, the connection will be closed, and the goroutine will attempt to connect to the exchange again
 
 ### Diagram
 
