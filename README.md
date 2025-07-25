@@ -52,7 +52,7 @@ Streams candles given a list of symbols. Aggregates data from 3 CEXs (Binance, B
 
 ```sh
 grpcurl \
-    -protoset <(buf build -o -) -plaintext \
+    -proto proto/candles/v1/candles.proto -plaintext \
     -d '{"symbols": ["btc-usdt", "eth-usdt"]}' \
     localhost:8080 proto.candles.v1.CandlesService/StreamCandles
 ```
