@@ -13,7 +13,18 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type BybitAdapter struct{}
+type BybitAdapter struct {
+	connection   *websocket.Conn
+	tradeChannel chan<- exchange.Trade
+	pongChannel  chan time.Time
+}
+
+func NewAdapter(tradeChannel chan<- exchange.Trade) *BybitAdapter {
+	return &BybitAdapter{
+		tradeChannel: tradeChannel,
+		pongChannel:  make(chan time.Time, 1),
+	}
+}
 
 type bybitTradeData struct {
 	Symbol   string  `json:"s"`
@@ -29,6 +40,10 @@ func (b *BybitAdapter) Name() string {
 	return "Bybit"
 }
 
+func (b *BybitAdapter) GetPongChan() <-chan time.Time {
+	return b.pongChannel
+}
+
 func (b *BybitAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*websocket.Conn, error) {
 	cfg := cmd.GetConfig()
 	addr := cfg.BybitAddress
@@ -40,6 +55,7 @@ func (b *BybitAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*webs
 	if err != nil {
 		return nil, err
 	}
+	b.connection = c
 
 	// send a subscription message
 	subscribeMessage := map[string]interface{}{
@@ -54,18 +70,41 @@ func (b *BybitAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*webs
 	return c, nil
 }
 
-func (b *BybitAdapter) HandleMessage(message []byte, out chan<- exchange.Trade) error {
-	var bt bybitTrade
-	if err := json.Unmarshal(message, &bt); err != nil {
+func (b *BybitAdapter) HandleMessage(message []byte) error {
+	var m map[string]interface{}
+	if err := json.Unmarshal(message, &m); err != nil {
 		return fmt.Errorf("bybit failed to unmarshal message: %w", err)
 	}
 
-	for _, data := range bt.Data {
-		out <- b.bybitTradeDataToDomainTrade(
-			data,
-		)
+	if m["op"] == "ping" {
+		b.pongChannel <- time.Now()
+		return nil
+	} else {
+		var bt bybitTrade
+		if err := json.Unmarshal(message, &bt); err != nil {
+			return fmt.Errorf("bybit failed to unmarshal message: %w", err)
+		}
+
+		for _, data := range bt.Data {
+			b.tradeChannel <- b.bybitTradeDataToDomainTrade(
+				data,
+			)
+		}
+		return nil
 	}
-	return nil
+
+}
+
+func (b *BybitAdapter) Ping() error {
+	if b.connection != nil {
+		pingMessage := map[string]interface{}{
+			"op": "ping",
+		}
+		b.connection.WriteJSON(pingMessage)
+		return nil
+	} else {
+		return fmt.Errorf("tried to ping without a valid connection")
+	}
 }
 
 func (b *BybitAdapter) symbolsToSubscribeArgs(symbols []exchange.SymbolPair) []string {

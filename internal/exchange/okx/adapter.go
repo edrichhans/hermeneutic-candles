@@ -13,7 +13,18 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type OkxAdapter struct{}
+type OkxAdapter struct {
+	tradeChannel chan<- exchange.Trade
+	pongChannel  chan time.Time
+	connection   *websocket.Conn
+}
+
+func NewAdapter(tradeChannel chan<- exchange.Trade) *OkxAdapter {
+	return &OkxAdapter{
+		tradeChannel: tradeChannel,
+		pongChannel:  make(chan time.Time, 1),
+	}
+}
 
 type okxTradeData struct {
 	InstId    string  `json:"instId"`
@@ -33,6 +44,10 @@ func (b *OkxAdapter) Name() string {
 	return "Okx"
 }
 
+func (b *OkxAdapter) GetPongChan() <-chan time.Time {
+	return b.pongChannel
+}
+
 func (b *OkxAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*websocket.Conn, error) {
 	cfg := cmd.GetConfig()
 	addr := fmt.Sprintf("%s:%d", cfg.OkxAddress, cfg.OkxPort)
@@ -44,6 +59,7 @@ func (b *OkxAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*websoc
 	if err != nil {
 		return nil, err
 	}
+	b.connection = c
 
 	// send a subscription message
 	subscribeMessage := map[string]interface{}{
@@ -58,18 +74,33 @@ func (b *OkxAdapter) ConnectAndSubscribe(symbols []exchange.SymbolPair) (*websoc
 	return c, nil
 }
 
-func (b *OkxAdapter) HandleMessage(message []byte, out chan<- exchange.Trade) error {
-	var bt okxTrade
-	if err := json.Unmarshal(message, &bt); err != nil {
-		return fmt.Errorf("okx failed to unmarshal message: %w", err)
-	}
+func (b *OkxAdapter) HandleMessage(message []byte) error {
+	if string(message) == "pong" {
+		b.pongChannel <- time.Now()
+		return nil
+	} else {
+		var bt okxTrade
+		if err := json.Unmarshal(message, &bt); err != nil {
+			return fmt.Errorf("okx failed to unmarshal message: %w", err)
+		}
 
-	for _, data := range bt.Data {
-		out <- b.okxTradeDataToDomainTrade(
-			data,
-		)
+		for _, data := range bt.Data {
+			b.tradeChannel <- b.okxTradeDataToDomainTrade(
+				data,
+			)
+		}
+		return nil
 	}
-	return nil
+}
+
+func (b *OkxAdapter) Ping() error {
+	if b.connection != nil {
+		pingMessage := "ping"
+		b.connection.WriteMessage(websocket.TextMessage, []byte(pingMessage))
+		return nil
+	} else {
+		return fmt.Errorf("tried to ping without a valid connection")
+	}
 }
 
 func (b *OkxAdapter) symbolsToSubscribeArgs(symbols []exchange.SymbolPair) []subscribeArgs {

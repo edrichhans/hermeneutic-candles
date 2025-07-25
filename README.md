@@ -135,7 +135,7 @@ Adding a new exchange is simple
 - [ ] Recover using candlestick data from REST endpoint
 - [ ] Tests
 - [ ] Handle differences in symbol encoding between request and response (btc-usdt vs btcusdt)
-- [ ] Handle disconnection after successful subscription
+- [x] Handle disconnection after successful subscription
     - Subscribe to the heartbeat API of the exchange
     - If there is no heartbeat stream, the manually `ping` the exchange server at an interval
     - Reconnect gracefully if there is no `pong` after a certain duration

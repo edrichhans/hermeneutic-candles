@@ -53,9 +53,9 @@ func (s *CandlesService) StreamCandles(
 	candleChannel := make(chan *candlesv1.StreamCandlesResponse)
 
 	// Initialize trade streamers for each exchange
-	binanceTradeStreamer := tradestreamer.NewTradeStreamer(&binance.BinanceAdapter{})
-	bybitTradeStreamer := tradestreamer.NewTradeStreamer(&bybit.BybitAdapter{})
-	okxTradeStreamer := tradestreamer.NewTradeStreamer(&okx.OkxAdapter{})
+	binanceTradeStreamer := tradestreamer.NewTradeStreamer(binance.NewAdapter(tradeChannel))
+	bybitTradeStreamer := tradestreamer.NewTradeStreamer(bybit.NewAdapter(tradeChannel))
+	okxTradeStreamer := tradestreamer.NewTradeStreamer(okx.NewAdapter(tradeChannel))
 
 	tradeStreamers := tradestreamer.NewAggregator([]*tradestreamer.TradeStreamer{
 		binanceTradeStreamer,
@@ -63,7 +63,7 @@ func (s *CandlesService) StreamCandles(
 		okxTradeStreamer,
 	})
 
-	go tradeStreamers.StreamTrades(ctx, tradeChannel, symbolPairs)
+	go tradeStreamers.StreamTrades(ctx, symbolPairs)
 
 	go s.forwardTradesToCandles(ctx, cfg, tradeChannel, candleChannel)
 

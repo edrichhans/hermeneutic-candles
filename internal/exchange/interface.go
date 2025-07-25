@@ -21,6 +21,8 @@ type SymbolPair struct {
 
 type ExchangeAdapter interface {
 	Name() string
+	GetPongChan() <-chan time.Time
 	ConnectAndSubscribe(symbols []SymbolPair) (*websocket.Conn, error)
-	HandleMessage(message []byte, out chan<- Trade) error
+	HandleMessage(message []byte) error
+	Ping() error
 }

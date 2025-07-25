@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -21,7 +23,7 @@ func NewTradeStreamer(adapter exchange.ExchangeAdapter) *TradeStreamer {
 	return &TradeStreamer{adapter: adapter}
 }
 
-func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchange.Trade, symbols []exchange.SymbolPair) error {
+func (ts *TradeStreamer) StreamTrades(parent context.Context, symbols []exchange.SymbolPair) error {
 	cfg := cmd.GetConfig()
 	connectionMaxRetries := cfg.WSConnectionMaxRetries
 
@@ -53,7 +55,7 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 
 		// Handle the connection
 		// This will block until the connection is closed or an error occurs
-		err = ts.handleConnection(ctx, c, out)
+		err = ts.handleConnection(ctx, cfg, c)
 		c.Close()
 
 		// If context was canceled, don't retry and don't return an error
@@ -72,24 +74,22 @@ func (ts *TradeStreamer) StreamTrades(parent context.Context, out chan<- exchang
 	return fmt.Errorf("failed to establish stable connection to %s after %d attempts", ts.adapter.Name(), connectionMaxRetries)
 }
 
-func (ts *TradeStreamer) handleConnection(ctx context.Context, c *websocket.Conn, out chan<- exchange.Trade) error {
+func (ts *TradeStreamer) handleConnection(ctx context.Context, cfg *cmd.Config, c *websocket.Conn) error {
+	var wg sync.WaitGroup
+	// Channel to signal when connection should be terminated or retried
 	done := make(chan error, 1)
 
-	go func() {
-		defer close(done)
-		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				done <- err
-				return
-			}
+	var lastTs atomic.Value
+	lastTs.Store(time.Now())
 
-			err = ts.adapter.HandleMessage(message, out)
-			if err != nil {
-				log.Printf("Failed to handle message: %v", err)
-				continue
-			}
-		}
+	wg.Add(2)
+	go ts.handleMessages(c, &lastTs, done, &wg)
+	go ts.checkLiveness(cfg, &lastTs, done, &wg)
+
+	// Wait for all goroutines to finish to close the channel
+	go func() {
+		wg.Wait()
+		close(done)
 	}()
 
 	for {
@@ -99,9 +99,75 @@ func (ts *TradeStreamer) handleConnection(ctx context.Context, c *websocket.Conn
 			log.Printf("Closing connection due to context cancellation")
 			c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			return ctx.Err()
-		// Possible read error from WS connection
 		case err := <-done:
 			return err
+		}
+	}
+}
+
+// Goroutine to handle the incoming messages from the WebSocket connection
+func (ts *TradeStreamer) handleMessages(c *websocket.Conn, lastTs *atomic.Value, done chan<- error, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			select {
+			case done <- err:
+			default:
+				// Channel is full or closed, ignore
+			}
+			return
+		}
+
+		lastTs.Store(time.Now())
+		err = ts.adapter.HandleMessage(message)
+		if err != nil {
+			log.Printf("Failed to handle message: %v", err)
+			continue
+		}
+	}
+}
+
+// Goroutine to periodically check the liveness of the connection
+// If no message is received within the configured timeout,
+// it sends a ping and waits for a pong response
+func (ts *TradeStreamer) checkLiveness(cfg *cmd.Config, lastTs *atomic.Value, done chan<- error, wg *sync.WaitGroup) {
+	defer wg.Done()
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		tsAtomic := lastTs.Load()
+		timestamp, ok := tsAtomic.(time.Time)
+		if !ok {
+			continue
+		}
+
+		if time.Since(timestamp) > time.Duration(cfg.WSConnectionTimeout)*time.Millisecond {
+			log.Printf("No message in %dms, sending ping", cfg.WSConnectionTimeout)
+			if err := ts.adapter.Ping(); err != nil {
+				select {
+				case done <- err:
+				default:
+					// Channel is full or closed, ignore
+				}
+				return
+			}
+		} else {
+			continue
+		}
+
+		select {
+		case <-ts.adapter.GetPongChan():
+			continue
+		case <-time.After(10 * time.Second):
+			log.Printf("Pong not received after 10 seconds of sending a ping. Reconnect.")
+			select {
+			case done <- nil:
+			default:
+				// Channel is full or closed, ignore
+			}
+			return
 		}
 	}
 }
