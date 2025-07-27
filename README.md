@@ -48,6 +48,30 @@ Streams candles given a list of symbols. Aggregates data from 3 CEXs (Binance, B
 }
 ```
 
+##### Response fields
+
+| Name      | Type   | Mandatory | Description                            |
+| --------- | ------ | --------- | -------------------------------------- |
+| symbol    | string | YES       | Candlestick symbol                     |
+| timestamp | int64  | YES       | Timestamp in Unix Milliseconds         |
+| open      | double | YES       | Opening price of the specific interval |
+| high      | double | YES       | High price of the specific interval    |
+| low       | double | YES       | Low price of the specific interval     |
+| close     | double | YES       | Closing price of the specific interval |
+| volume    | double | YES       | Volume of trades during the period     |
+
+```json
+{
+    "symbol": "ethusdt",
+    "timestamp": "1753590307",
+    "open": 3775.72,
+    "high": 3775.82,
+    "low": 3775.18,
+    "close": 3775.4,
+    "volume": 3.6412359999999993
+}
+```
+
 ### cURL example
 
 ```sh
