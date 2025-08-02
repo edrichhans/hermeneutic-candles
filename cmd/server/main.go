@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -14,6 +19,9 @@ import (
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	// Initialize flags
 	intervalMillisFlag := flag.Int("interval", 5000, "Candle interval in milliseconds")
 	flag.Parse()
@@ -30,10 +38,26 @@ func main() {
 		Handler: h2c.NewHandler(mux, &http2.Server{}),
 	}
 
-	log.Println("Starting server on :8080")
-	log.Printf("Flags: intervalMillis=%d\n", *intervalMillisFlag)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	go func() {
+		log.Println("Starting server on :8080")
+		log.Printf("Flags: intervalMillis=%d\n", *intervalMillisFlag)
+		if err := server.ListenAndServe(); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("Shutting down server...")
+
+	// Create new context for shutdown with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	// Graceful shutdown
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+		return
 	}
-	log.Println("Server stopped")
+
+	log.Println("Server stopped gracefully")
 }
