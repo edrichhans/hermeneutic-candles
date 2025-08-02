@@ -7,14 +7,19 @@ import (
 	"hermeneutic-candles/gen/proto/candles/v1/candlesv1connect"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"connectrpc.com/connect"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	// Initialize flags
 	serverAddrFlag := flag.String("server", "http://localhost:8080", "Server address")
 	symbolsFlag := flag.String("symbols", "btc-usdt", "Comma-separated list of symbols to subscribe to")
@@ -49,4 +54,18 @@ func main() {
 		log.Println("")
 	}
 	log.Println("Stream closed")
+
+	// Check why stream ended
+	if err := stream.Err(); err != nil {
+		log.Printf("Stream error: %v", err)
+	} else {
+		log.Println("Stream closed gracefully")
+	}
+
+	// Additional cleanup if needed
+	if err := stream.Close(); err != nil {
+		log.Printf("Failed to close stream: %v", err)
+	}
+
+	log.Println("Client stopped gracefully")
 }
